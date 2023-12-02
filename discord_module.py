@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from helpers import Memory, display_file, raise_cost, get_listen_input
+from helpers import Memory, display_file, get_listen_input
 from processing import process_input, process_output, get_bot_response
 from chatbot import Chatbot
 from dotenv import load_dotenv
@@ -50,7 +50,6 @@ class DiscordBot(commands.Bot):
     async def handle_chat_command(self, ctx):
         channel = ctx.channel
         message_content = ctx.content
-        await raise_cost(self.user_store, self.save_users, self.config)
         combined_context = await process_input(message_content, self.memory, self.chatbot, self.config)
         bot_response = await get_bot_response(message_content, channel, combined_context, self.chatbot)
         await channel.send(f"[{self.config.name}]: {bot_response}")  # Sending to the channel from which the command originated
@@ -60,7 +59,6 @@ class DiscordBot(commands.Bot):
 
     async def handle_listen_command(self):
         channel = ""
-        await raise_cost(self.user_store, self.save_users, self.config)
         user_input = await get_listen_input(self.config)
         combined_context = await process_input(user_input, channel, self.memory, self.chatbot, self.config)
         bot_response = await get_bot_response(user_input, combined_context, self.chatbot)
