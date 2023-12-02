@@ -442,3 +442,7 @@ async def get_listen_input(config: ConfigManager):
     else:
         user_input = "failed to transcribe audio"
     return user_input
+    
+def display_file(file, bot_name, type)
+    #use your own frontend to display responses and avatars
+    pass
