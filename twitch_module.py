@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 from twitchio.ext import commands as twitch_commands
 from twitchio import Channel
-from helpers import Memory, truncate_text, display_file, get_twitch_token, raise_cost, get_listen_input
+from helpers import Memory, truncate_text, display_file, get_twitch_token, get_listen_input
 from processing import process_input, process_output, process_queue_input, process_queue_output, get_bot_response
 from chatbot import Chatbot
 from dotenv import load_dotenv
@@ -137,7 +137,6 @@ class TwitchBot(twitch_commands.Bot):
                         await self.handle_chat_command(username, message_content, channel)             
     
     async def handle_chat_command(self, username, message, channel: Channel):
-        await raise_cost(self.user_store, self.save_users, self.config)
         message_content = f"Username and username info: '{username}'. Message: {message}"
         combined_context = await process_input(message_content, channel, self.memory, self.chatbot, self.config)
         bot_response = await get_bot_response(message_content, combined_context, self.chatbot)
@@ -146,7 +145,6 @@ class TwitchBot(twitch_commands.Bot):
         await process_output(bot_response, message_content, self.chatbot, self.memory, self.config)
 
     async def handle_tts_command(self, username, message, channel: Channel):
-        await raise_cost(self.user_store, self.save_users, self.config)
         message_content = f"Username and username info: '{username}'. Message: {message}"
         combined_context = await process_input(message_content, channel, self.memory, self.chatbot, self.config)
         bot_response = await get_bot_response(message_content, combined_context, self.chatbot)
@@ -156,8 +154,6 @@ class TwitchBot(twitch_commands.Bot):
 
     async def handle_listen_command(self):
         channel = self.get_channel(self.config.channel)
-        await raise_cost(self.user_store, self.save_users, self.config)
-        channel = self.get_channel(self.config.channel)
         user_input = await get_listen_input(self.config)
         combined_context = await process_input(user_input, channel, self.memory, self.chatbot, self.config)
         bot_response = await get_bot_response(user_input, combined_context, self.chatbot)
@@ -166,7 +162,6 @@ class TwitchBot(twitch_commands.Bot):
         await process_output(bot_response, user_input, self.chatbot, self.memory, self.config)
 
     async def handle_queue_command(self, username, message, channel: Channel):
-        await raise_cost(self.user_store, self.save_users, self.config)
         queue_prompt = "You maintain a simple queue for viewer battles. Whenever you are asked, you will either add somebody to the queue, advance the queue, or display the queue. When asked to add somebody to the queue (or if someone leaves their message body empty and just puts the !queue command into chat), add that person to the next available position in the queue and display the whole queue in your response. When asked to advance the queue, remove the person at the top and send the new queue in your response. Sometimes people will request to be added simply by using your command and not including a message in the body, in these cases please add them to the queue. When asked to display the queue, send the entire queue without making any changes to it. You should send the entire queue every response no matter what. When displaying the queue, always remember not to leave anyone out. Make sure the whole entire queue is displayed and make sure that you do not forget anybody. To cut down on duplicate actions, if people try to remove people, add people, or advance the queue quickly in succession (less than one minute apart) only do it once. If the message portion of a user's input is left out, just add them to the queue. This happens because people just put '!queue' into the chat. Only allow users to be in the queue once at a time. "
         message_content = f"Username and username info: '{username}'. Message: {message}"
         combined_context = await process_queue_input(message_content, self.memory, self.chatbot)
@@ -175,7 +170,6 @@ class TwitchBot(twitch_commands.Bot):
 
     async def handle_background_command(self, username, message, channel: Channel):
         channel = ""
-        await raise_cost(self.user_store, self.save_users, self.config)
         message_content = f"Username and username info: '{username}'. Message: {message}"
         background_prompt = "You help maintain the background image for a stream via your word dictations. Please create a vivid description in under 490 characters for the attached user's request for a background. Your response should contain nothing but the background prompt. UNDER NO CIRCUMSTANCES SHOULD YOUR RESPONSE EXCEED 490 CHARACTERS"
         combined_context = await process_input(message_content, channel, self.memory, self.chatbot, self.config)
