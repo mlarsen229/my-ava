@@ -179,31 +179,6 @@ def load_memory(memory: Memory):
             memory.sentience_memory = items
     return memory
 
-def delete_all_objects(bucket_name):
-    """Delete all objects in a bucket."""
-    # Initialize the Google Cloud Storage client
-    storage_client = storage.Client()
-
-    # Get the bucket object
-    bucket = storage_client.get_bucket(bucket_name)
-
-    # List all objects in the bucket and delete them
-    blobs = bucket.list_blobs()
-    for blob in blobs:
-        blob.delete()
-
-    print(f"All objects in bucket {bucket_name} have been deleted.")
-
-def delete_json_from_cloud(filename):
-    try:
-        storage_client = storage.Client.from_service_account_json(GOOGLE_APPLICATION_CREDENTIALS)       
-        bucket = storage_client.get_bucket('blankbotbucket')
-        blob = bucket.blob(filename)
-        blob.delete()        
-        print(f"Blob '{filename}' deleted.")
-    except Exception as e:
-        print(f"Exception while deleting blob: {e}")
-
 def save_json_to_cloud(json_data, filename):
     try:
         storage_client = storage.Client.from_service_account_json(GOOGLE_APPLICATION_CREDENTIALS)
@@ -258,13 +233,6 @@ def truncate_text(text, max_chars):
     if len(text) > max_chars:
         return text[:max_chars-3] + "..."
     return text
-
-def display_file(file_name, config_name, type):
-    file_extension = os.path.splitext(file_name)[1]  # Get the file extension
-    destination_path = f'media/{config_name}{type}{file_extension}'  # Use the config_name and extension
-    
-    shutil.copy(file_name, destination_path)
-    print(f"copied {file_name} to {destination_path}")
 
 async def generate_summary(text, max_tokens, chatbot: Chatbot):
     response = await chatbot.databot(f"CURRENT USER INPUT: Please summarize this chunk of text in under {max_tokens} characters by converting it to shorthand and removing unimportant info, conserving the original form as much as possible. If the log is empty just say 'websearch log empty'. Do not add labels or add any of your own words. text chunk: '{text}'. END OF CURRENT USER INPUT. ")
@@ -438,43 +406,6 @@ async def check_completion(urls, query, chatbot: Chatbot):
         return True
     else:
         return False
-    
-def exchange_code_for_token(code):
-    try:
-        url = "https://id.twitch.tv/oauth2/token"
-        payload = {
-                "client_id": CLIENT_ID,
-                "client_secret": CLIENT_SECRET,
-                "code": code,
-                "grant_type": "authorization_code",
-                "redirect_uri": "https://my-ava.net/twitch_oauth_callback",
-            }
-        print(f"payload: {payload}")
-        response = requests.post(url, data=payload)
-        try:
-            response.raise_for_status()
-        except requests.exceptions.HTTPError as e:
-            print(f"Error response: {response.text}")  # This might give more insights
-            raise e
-        token_data = response.json()
-        return token_data['access_token']
-    except Exception as e:
-        print(f"error in exchange_code_for_token: {e}")
-        traceback.print_exc()
-
-def save_twitch_token(token):
-    with open('twitch_token_file.txt', 'w') as file:
-        file.write(token)
-        print(f"token saved: {token}")
-
-def get_twitch_token():
-    try:
-        with open('twitch_token_file.txt', 'r') as file:
-            token = file.read().strip()
-            print(f"token during get_twitch_token: {token}")
-            return token
-    except Exception as e:
-        print(f"error during get_twitch_token: {e}")
 
 async def raise_cost(user_store, save_users, config: ConfigManager):
     special_admin_names = ['mistafuzza', 'biggoronoron']
