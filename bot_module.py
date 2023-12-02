@@ -1,4 +1,4 @@
-from helpers import Memory, raise_cost, get_chat_input, get_listen_input
+from helpers import Memory, get_chat_input, get_listen_input
 from config_module import ConfigManager
 from chatbot import Chatbot
 from twitch_module import TwitchBot
@@ -54,7 +54,6 @@ class StandardBot:
     
     async def handle_chat_command(self):
         channel = ""
-        await raise_cost(self.user_store, self.save_users, self.config)
         user_input = await get_chat_input(self.config)
         combined_context = await process_input(user_input, channel, self.memory, self.chatbot, self.config) 
         bot_response = await get_bot_response(user_input, combined_context, self.chatbot)
@@ -62,7 +61,6 @@ class StandardBot:
 
     async def handle_listen_command(self):
         channel = ""
-        await raise_cost(self.user_store, self.save_users, self.config)
         user_input = await get_listen_input(self.config)
         combined_context = await process_input(f"!tts {user_input}", channel, self.memory, self.chatbot, self.config)
         bot_response = await get_bot_response(user_input, combined_context, self.chatbot)
