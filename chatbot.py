@@ -9,6 +9,8 @@ from config_module import ConfigManager
 load_dotenv()
 API_KEY = os.getenv("OPENAI_API_KEY")
 
+
+#replace this class and its methods with your own LLM methods if desired
 class Chatbot:
     def __init__(self, config: ConfigManager, api_key: str = API_KEY) -> None:
         openai.api_key = api_key
