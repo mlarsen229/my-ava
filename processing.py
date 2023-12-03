@@ -111,6 +111,7 @@ async def process_bg_output(background_prompt, channel: Channel, config: ConfigM
     background = await get_background(background_prompt, config, chatbot)
     display_file(background, config.name, 'background')
 
+#replace chatbot.ask with your own LLM response method if desired, just makes sure a string is returned by get_bot_response()
 async def get_bot_response(user_input, combined_context, chatbot: Chatbot):
     try:
         response = await chatbot.ask(f"CURRENT USER INPUT: '{user_input}' END OF CURRENT USER INPUT. Only respond to the current user input. Here is some (possible, may not appear) additional context for you to use to inform your response: '{combined_context}'. ")
