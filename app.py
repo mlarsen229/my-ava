@@ -53,6 +53,7 @@ def activate_bot(name, raw_config):
             logging.error(f"Exception caught in activate_bot: {e}")
             return False
 
+#Replace config_store.json loading logic to use local configs if desired
 def load_configs():
     try:
         storage_client = storage.Client.from_service_account_json(GOOGLE_APPLICATION_CREDENTIALS)
