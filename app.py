@@ -57,7 +57,7 @@ def activate_bot(name, raw_config):
 def load_configs():
     try:
         storage_client = storage.Client.from_service_account_json(GOOGLE_APPLICATION_CREDENTIALS)
-        bucket = storage_client.get_bucket('blankbotbucket')
+        bucket = storage_client.get_bucket('yourbucket')
         blob = bucket.blob('config_store.json')
         config_data = json.loads(blob.download_as_text())
         #print(f"config store during load_configs: {config_data}")
