@@ -5,14 +5,11 @@ import os
 import os
 from config_module import ConfigManager
 from chatbot import Chatbot
-import shutil
 import re
 from google.cloud import storage
-import requests
 import traceback
 import asyncio
 from sentience_module import get_sentience_core
-from openai_module import client
 
 GOOGLE_APPLICATION_CREDENTIALS = ""
 CLIENT_SECRET = os.getenv("TWITCH_CLIENT_SECRET")  # Ensure you have the client secret in your .env file
@@ -182,7 +179,7 @@ def load_memory(memory: Memory):
 def save_json_to_cloud(json_data, filename):
     try:
         storage_client = storage.Client.from_service_account_json(GOOGLE_APPLICATION_CREDENTIALS)
-        bucket = storage_client.get_bucket('blankbotbucket')
+        bucket = storage_client.get_bucket('yourbucket')
         blob = bucket.blob(filename)        
         blob.upload_from_string(json.dumps(json_data))
         #print(f"Blob '{filename} appended with '{json_data}'")
@@ -192,7 +189,7 @@ def save_json_to_cloud(json_data, filename):
 def load_json_from_cloud(filename):
     try:
         storage_client = storage.Client.from_service_account_json(GOOGLE_APPLICATION_CREDENTIALS)
-        bucket = storage_client.get_bucket('blankbotbucket')
+        bucket = storage_client.get_bucket('yourbucket')
         blob = bucket.blob(f"{filename}.json")
         if not blob.exists():
             #print(f"Blob {filename}.json does not exist.")
@@ -213,26 +210,15 @@ def read_json_file(file_path):
     except Exception as e:
         print(f"error in read_json_file: {e}")
         traceback.print_exc()
-    
-def process_txt_file(file_path: str) -> str:
-    with open(file_path, 'r', encoding='utf-8') as file:
-        content = file.read()
-    return content
-
-def response_to_txt_file(response: str) -> str:
-    directory = "text_files"
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    file_path = f"{directory}/response.txt"
-    with open(file_path, 'w', encoding='utf-8') as file:
-        file.write(response)
-    
-    return file_path
 
 def truncate_text(text, max_chars):
     if len(text) > max_chars:
         return text[:max_chars-3] + "..."
     return text
+
+def display_file(file_name, config_name, type):
+    #insert your frontend display logic
+    pass
 
 async def generate_summary(text, max_tokens, chatbot: Chatbot):
     response = await chatbot.databot(f"CURRENT USER INPUT: Please summarize this chunk of text in under {max_tokens} characters by converting it to shorthand and removing unimportant info, conserving the original form as much as possible. If the log is empty just say 'websearch log empty'. Do not add labels or add any of your own words. text chunk: '{text}'. END OF CURRENT USER INPUT. ")
@@ -243,13 +229,17 @@ def truncate_backwards(text, max_chars):
         return text[-max_chars:]
     return text
 
-def find_segment(text, pattern):
+def find_segment(text, pattern=r"\[START\](.*?)\[END\]"):
     segment_match = re.search(pattern, text, flags=re.DOTALL)
     if segment_match:
         segment = segment_match.group(1)
     else:
         segment = f"{pattern} segment not found. "
     return segment
+
+def remove_segment(text, pattern=r"\[START\](.*?)\[END\]"):
+    modified_text = re.sub(pattern, '', text, flags=re.DOTALL)
+    return modified_text
 
 async def should_search(message, chatbot: Chatbot, memory: Memory):
     short_term_memory = await memory.get_short_term_mem()
@@ -332,59 +322,29 @@ async def websearch(subject, chatbot: Chatbot):
     additional_context = await search_google(subject, chatbot)
     print(f"websearch info: '{additional_context}'") 
     return additional_context
-    
-async def refine_query(current_query, chatbot: Chatbot):
-    try:
-        response = await chatbot.ask_gpt_3_5(f"Your job is to revise google search queries to improve them for the google search engine. This query was unsuccessful in returning results: '{current_query}'. YOUR RESPONSE SHOULD CONTAIN NOTHING BUT THE REVISED QUERY.")
-        new_query = response["message"]
-        print(f"revised query: {new_query}")
-        return new_query
-    except Exception as e:
-        print(f"error during should_search: {e}")
-        return current_query
 
 async def search_google(query, chatbot):
     urls = []
     GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
     CSE_ID = os.getenv("CSE_ID")
-    async def main_search_logic(session):
-        nonlocal query
-        is_complete = False
-        while not is_complete:
-            search_url = f"https://www.googleapis.com/customsearch/v1?key={GOOGLE_API_KEY}&cx={CSE_ID}&q={query}"
-            async with session.get(search_url) as response:
-                results = await response.text()
-                results_json = json.loads(results)
-                if "items" not in results_json:
-                    print("No search results found.")
-                    break  # Exit if no items are found
-                fetch_tasks = [get_webpage_content(item["link"], chatbot) for item in results_json["items"]]
-                contents = await asyncio.gather(*fetch_tasks)
-                for url, content in zip([item["link"] for item in results_json["items"]], contents):
-                    if content is not None:
-                        print(f"url: {url} content: {content}")
-                        urls.append({"url": url, "content": content})
-                        is_complete = await check_completion(urls, query, chatbot)
-                        if is_complete:
-                            print("Completion criteria met, exiting.")
-                            return urls  # Exit immediately if completion criteria are met
-                if not is_complete:
-                    print(f"revising search query.")
-                    query = await refine_query(query, chatbot)
-        print("websearch completed")
-        print(f"Number of searches performed: {len(urls)}")
-        print(f"complete_search_results: {urls}")
-        return urls
-    try:
-        async with aiohttp.ClientSession() as session:
-            return await asyncio.wait_for(main_search_logic(session), timeout=30)
-    except asyncio.TimeoutError:
-        print("The search operation timed out after 30 seconds, websearch incomplete.")
-        print(f"Number of searches performed: {len(urls)}")
-        return urls
-    except Exception as e:
-        print(f"An error occurred while searching Google and fetching content: {e}")
-        return urls
+    async with aiohttp.ClientSession() as session:
+        search_url = f"https://www.googleapis.com/customsearch/v1?key={GOOGLE_API_KEY}&cx={CSE_ID}&q={query}"
+        async with session.get(search_url) as response:
+            results = await response.text()
+            results_json = json.loads(results)
+            if "items" not in results_json:
+                print("No search results found.")
+                return urls
+            fetch_tasks = [get_webpage_content(item["link"], chatbot) for item in results_json["items"]]
+            contents = await asyncio.gather(*fetch_tasks)
+            for url, content in zip([item["link"] for item in results_json["items"]], contents):
+                if content is not None:
+                    print(f"url: {url} content: {content}")
+                    urls.append({"url": url, "content": content})
+    print("websearch completed")
+    print(f"Number of searches performed: {len(urls)}")
+    print(f"complete_search_results: {urls}")
+    return urls
 
 async def get_webpage_content(url, chatbot: Chatbot):
     try:
@@ -394,55 +354,16 @@ async def get_webpage_content(url, chatbot: Chatbot):
         soup = BeautifulSoup(html, "html.parser")
         raw_text = soup.get_text()
         text = truncate_text(raw_text, 5000)
-        summary = await generate_summary(text, max_tokens=100, chatbot=chatbot)
+        summary = await generate_summary(text, max_tokens=500, chatbot=chatbot)
         return summary
     except Exception as e:
         print(f"An error occurred while fetching the webpage content: {e}")
-        return None
-    
-async def check_completion(urls, query, chatbot: Chatbot):
-    response = await chatbot.databot(f"is the attached websearch data sufficient to answer questions about {query}? Your response should only contain 'yes' or 'no'. Return 'yes' if there is sufficient data and 'no' if the data is insufficent: {urls}")
-    if 'yes' in response['message'].lower():
-        return True
-    else:
-        return False
-
-async def raise_cost(user_store, save_users, config: ConfigManager):
-    special_admin_names = ['mistafuzza', 'biggoronoron']
-    username = config.user
-    if all(special_admin_name not in username for special_admin_name in special_admin_names):
-        if username in user_store and user_store[username]['credits'] > 0:
-            user_store[username]['usage_count'] += 1
-            user_store[username]['credits'] -= config.cost 
-        else:  
-            text_response = (f"[{config.name}]: I'm sorry, but I'm out of credits. Please buy more credits to continue using me.")
-            display_file(text_response, config.name, 'avatar')
-            return        
-    save_users()
-    return
+        return None    
     
 async def get_chat_input(config: ConfigManager):
-    text_file_path = f"text_files/{config.name}avatar.txt"
-    if os.path.exists(text_file_path):
-        user_input = process_txt_file(text_file_path)
-    else:
-        user_input = "failed to parse text"
-    return user_input
+    #insert your logic for retrieving frontend inputs
+    pass
     
 async def get_listen_input(config: ConfigManager):
-    audio_file_path = f"audio_files/{config.name}avatar.wav"
-    if os.path.exists(audio_file_path):
-        with open(audio_file_path, "rb") as audio_file:
-            transcript = client.audio.transcriptions.create(
-                model="whisper-1", 
-                file=audio_file
-            )
-            print(f"Transcript: {transcript.text}")
-            user_input = transcript.text
-    else:
-        user_input = "failed to transcribe audio"
-    return user_input
-    
-def display_file(file, bot_name, type)
-    #use your own frontend to display responses and avatars
+    #insert your logic for retrieving frontend inputs
     pass

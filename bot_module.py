@@ -55,13 +55,14 @@ class StandardBot:
     async def handle_chat_command(self):
         channel = ""
         user_input = await get_chat_input(self.config)
-        combined_context = await process_input(user_input, channel, self.memory, self.chatbot, self.config) 
+        combined_context, avatar_context = await process_input(self.user_store, self.save_users, user_input, channel, self.memory, self.chatbot, self.config) 
+        print(f"combined_context: {combined_context}")
         bot_response = await get_bot_response(user_input, combined_context, self.chatbot)
-        await process_output(bot_response, user_input, self.chatbot, self.memory, self.config)
+        await process_output(avatar_context, bot_response, user_input, channel, self.chatbot, self.memory, self.config)
 
     async def handle_listen_command(self):
         channel = ""
         user_input = await get_listen_input(self.config)
-        combined_context = await process_input(f"!tts {user_input}", channel, self.memory, self.chatbot, self.config)
+        combined_context, avatar_context = await process_input(self.user_store, self.save_users, f"!tts {user_input}", channel, self.memory, self.chatbot, self.config)
         bot_response = await get_bot_response(user_input, combined_context, self.chatbot)
-        await process_output(bot_response, f"!tts {user_input}", self.chatbot, self.memory, self.config)
+        await process_output(avatar_context, bot_response, f"!tts {user_input}", channel, self.chatbot, self.memory, self.config)

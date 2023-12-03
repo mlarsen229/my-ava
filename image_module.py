@@ -20,11 +20,10 @@ def download_image(image_url, filename):
             f.write(response.content)
 
 async def get_avatar_expression(text, config: ConfigManager, chatbot: Chatbot):
-    avatar_expression = await chatbot.ask_gpt_3_5(f"You have just responded to a user and now it is time to dictate your avatar's form. Based on the sentiment and content of the attached response of yours, simply describe how you would like your avatar to look and what expressions and actions you want it to take during the attached response, in third person without using your name or the word 'avatar'. Refer to yourself as 'they' only in the avatar dictation. The general form your avatar takes is '{config.avatar}', but this is just a baseline so make sure to add to it, using your creative freedom to physically portray whatever you want and do whatever you want (but ensure the context is always that of the attached response). When dictating your avatar's form, always write it in third person without using your name, and only refer to yourself as 'they'. Response: '{text}'. ")
+    avatar_expression = await chatbot.ask_gpt_3_5(f"MOTOR FUNCTION MODULE ENGAGED: It is time to dictate your avatar's form. Based on the sentiment and content of the attached user input, simply describe how you would like your avatar to look and what expressions and actions you want it to take when responding to the input, in third person without using your name or the word 'avatar'. Refer to yourself as 'they' only in the avatar dictation. The general form your avatar takes is '{config.avatar}', but this is just a baseline so make sure to add to it, using your creative freedom to physically portray whatever you want and do whatever you want (but ensure the context is always that of the attached response). When dictating your avatar's form, always write it in third person without using your name, and only refer to yourself as 'they'. User input: '{text}'. ")
     return avatar_expression["message"]
 
-async def get_avatar(text, config: ConfigManager, chatbot: Chatbot):
-    avatar_expression = await get_avatar_expression(text, config, chatbot)
+async def get_avatar(avatar_expression, config: ConfigManager, chatbot: Chatbot):
     raw_prompt = f"{config.avatar} {avatar_expression}"
     prompt = await image_mod_check(raw_prompt, chatbot)
     if 'dall-e-3' in config.plugins:

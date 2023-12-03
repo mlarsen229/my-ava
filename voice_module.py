@@ -2,7 +2,7 @@ from google.cloud import texttospeech
 import uuid
 from google.oauth2.service_account import Credentials
 
-GOOGLE_APPLICATION_CREDENTIALS = ""
+GOOGLE_APPLICATION_CREDENTIALS = " "
 
 def tts_to_audio_file(text, config_voice, language_code='', file_format='mp3'):
     #look for US or GB in config_voice and assign language_code accordingly

@@ -27,9 +27,9 @@ class DiscordBot(commands.Bot):
         self.memory = memory
         self.chatbot = chatbot
         self.user_store = user_store
-        self.admin_names = [self.config.channel, 'biggoronoron']
+        self.admin_names = [self.config.channel]
         self.save_users = save_users
-        self.special_admin_names = ['mistafuzza', 'biggoronoron']
+        self.special_admin_names = ['']
 
     async def start(self):
         await super().start(DISCORD_TOKEN)
@@ -50,18 +50,18 @@ class DiscordBot(commands.Bot):
     async def handle_chat_command(self, ctx):
         channel = ctx.channel
         message_content = ctx.content
-        combined_context = await process_input(message_content, self.memory, self.chatbot, self.config)
+        combined_context, avatar_context = await process_input(self.user_store, self.save_users, message_content, self.memory, self.chatbot, self.config)
         bot_response = await get_bot_response(message_content, channel, combined_context, self.chatbot)
         await channel.send(f"[{self.config.name}]: {bot_response}")  # Sending to the channel from which the command originated
-        avatar_image = await process_output(bot_response, message_content, self.chatbot, self.memory, self.config)
+        avatar_image = await process_output(avatar_context, bot_response, message_content, channel, self.chatbot, self.memory, self.config)
         if 'avatar' in self.config.plugins:
             await channel.send(file=discord.File(avatar_image))  # Sending the avatar image 
 
     async def handle_listen_command(self):
         channel = ""
         user_input = await get_listen_input(self.config)
-        combined_context = await process_input(user_input, channel, self.memory, self.chatbot, self.config)
+        combined_context, avatar_context = await process_input(self.user_store, self.save_users, f"!tts {user_input}", channel, self.memory, self.chatbot, self.config)
         bot_response = await get_bot_response(user_input, combined_context, self.chatbot)
-        avatar_image = await process_output(bot_response, f"!tts {user_input}", self.chatbot, self.memory, self.config)
+        avatar_image = await process_output(avatar_context, bot_response, f"!tts {user_input}", channel, self.chatbot, self.memory, self.config)
         if 'avatar' in self.config.plugins:
             display_file(avatar_image, self.config.name, 'avatar')
