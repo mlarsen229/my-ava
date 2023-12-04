@@ -19,16 +19,14 @@ intents.typing = False
 intents.presences = False
 
 class DiscordBot(commands.Bot):
-    def __init__(self, loop, config: ConfigManager, chatbot: Chatbot, memory: Memory, user_store, save_users, *args, **kwargs):
+    def __init__(self, loop, config: ConfigManager, chatbot: Chatbot, memory: Memory, *args, **kwargs):
         super().__init__(command_prefix="!", intents=intents, *args, **kwargs)
         logging.info("Initializing DiscordBot")
         self.loop = loop
         self.config = config
         self.memory = memory
         self.chatbot = chatbot
-        self.user_store = user_store
-        self.admin_names = [self.config.channel]
-        self.save_users = save_users
+        self.admin_names = ['']
         self.special_admin_names = ['']
 
     async def start(self):
@@ -50,7 +48,7 @@ class DiscordBot(commands.Bot):
     async def handle_chat_command(self, ctx):
         channel = ctx.channel
         message_content = ctx.content
-        combined_context, avatar_context = await process_input(self.user_store, self.save_users, message_content, self.memory, self.chatbot, self.config)
+        combined_context, avatar_context = await process_input(message_content, self.memory, self.chatbot, self.config)
         bot_response = await get_bot_response(message_content, channel, combined_context, self.chatbot)
         await channel.send(f"[{self.config.name}]: {bot_response}")  # Sending to the channel from which the command originated
         avatar_image = await process_output(avatar_context, bot_response, message_content, channel, self.chatbot, self.memory, self.config)
@@ -60,7 +58,7 @@ class DiscordBot(commands.Bot):
     async def handle_listen_command(self):
         channel = ""
         user_input = await get_listen_input(self.config)
-        combined_context, avatar_context = await process_input(self.user_store, self.save_users, f"!tts {user_input}", channel, self.memory, self.chatbot, self.config)
+        combined_context, avatar_context = await process_input(f"!tts {user_input}", channel, self.memory, self.chatbot, self.config)
         bot_response = await get_bot_response(user_input, combined_context, self.chatbot)
         avatar_image = await process_output(avatar_context, bot_response, f"!tts {user_input}", channel, self.chatbot, self.memory, self.config)
         if 'avatar' in self.config.plugins:

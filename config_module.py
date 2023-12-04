@@ -1,8 +1,3 @@
-import json
-from google.cloud import storage
-
-GOOGLE_APPLICATION_CREDENTIALS = ""
-
 config_store = {}
 
 class ConfigManager:
@@ -48,18 +43,5 @@ def dict_to_config(config_dict):
     return ConfigManager(**config_dict)
 
 def save_configs(config_store):
-    try:
-        storage_client = storage.Client.from_service_account_json(GOOGLE_APPLICATION_CREDENTIALS)
-        bucket = storage_client.get_bucket('yourbucket')
-        blob = bucket.blob('config_store.json')
-        
-        data_to_save = {k: config_to_dict(v) if isinstance(v, ConfigManager) else v for k, v in config_store.items()}
-        blob.upload_from_string(json.dumps(data_to_save))
-        #print(f"config saved: {config_store}")
-    except Exception as e:
-        print(f"Exception while saving configs: {e}")
-
-def save_json_locally(json_file, filename):
-    with open(filename, 'w') as file:
-        json.dump(json_file, file, indent=4)
-        return filename
+    #insert logic for saving bot configs
+    pass

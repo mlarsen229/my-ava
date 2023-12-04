@@ -10,30 +10,28 @@ import asyncio
 
 load_dotenv()
 TWITCH_CLIENT_ID = os.getenv("TWITCH_CLIENT_ID")
-TWITCH_BOT_NICK = "blankbot_online"
+TWITCH_BOT_NICK = os.getenv("blankbot_online")
 TWITCH_BOT_PREFIX = "!"
 
 bot_instance = None
 
-def create_bot(loop, config: ConfigManager, chatbot: Chatbot, memory: Memory, user_store, save_users):
+def create_bot(loop, config: ConfigManager, chatbot: Chatbot, memory: Memory):
     if config.bot_type == 'twitch':
         bot_type = TwitchBot
     elif config.bot_type == 'standard':
         bot_type = StandardBot
     elif config.bot_type == 'discord':
         bot_type = DiscordBot
-    bot_instance = bot_type(loop, config, chatbot, memory, user_store, save_users)
+    bot_instance = bot_type(loop, config, chatbot, memory)
     return bot_instance
 
 class StandardBot:
-    def __init__(self, loop, config: ConfigManager, chatbot: Chatbot, memory: Memory, user_store, save_users):
+    def __init__(self, loop, config: ConfigManager, chatbot: Chatbot, memory: Memory):
         print("Initializing StandardBot")
         self.loop = loop
         self.config = config
         self.memory = memory
         self.chatbot = chatbot
-        self.user_store = user_store
-        self.save_users = save_users
         self.is_running = True
 
     async def start(self):
@@ -55,7 +53,7 @@ class StandardBot:
     async def handle_chat_command(self):
         channel = ""
         user_input = await get_chat_input(self.config)
-        combined_context, avatar_context = await process_input(self.user_store, self.save_users, user_input, channel, self.memory, self.chatbot, self.config) 
+        combined_context, avatar_context = await process_input(user_input, channel, self.memory, self.chatbot, self.config) 
         print(f"combined_context: {combined_context}")
         bot_response = await get_bot_response(user_input, combined_context, self.chatbot)
         await process_output(avatar_context, bot_response, user_input, channel, self.chatbot, self.memory, self.config)
@@ -63,6 +61,6 @@ class StandardBot:
     async def handle_listen_command(self):
         channel = ""
         user_input = await get_listen_input(self.config)
-        combined_context, avatar_context = await process_input(self.user_store, self.save_users, f"!tts {user_input}", channel, self.memory, self.chatbot, self.config)
+        combined_context, avatar_context = await process_input(f"!tts {user_input}", channel, self.memory, self.chatbot, self.config)
         bot_response = await get_bot_response(user_input, combined_context, self.chatbot)
         await process_output(avatar_context, bot_response, f"!tts {user_input}", channel, self.chatbot, self.memory, self.config)

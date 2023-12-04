@@ -1,4 +1,4 @@
-from helpers import Memory, should_search, websearch, display_file, truncate_text, find_segment, remove_segment
+from helpers import Memory, should_search, websearch, display_file, response_to_txt_file, truncate_text, find_segment, remove_segment
 from image_module import get_avatar, get_queue_avatar, get_background, get_avatar_expression
 from voice_module import tts_to_audio_file
 from chatbot import Chatbot
@@ -8,9 +8,9 @@ from sentience_module import get_pre_response_sentience
 from twitchio import Channel
 import asyncio
 
-async def process_input(user_store, save_users, user_input, channel: Channel, memory: Memory, chatbot: Chatbot, config: ConfigManager):
+async def process_input(user_input, channel: Channel, memory: Memory, chatbot: Chatbot, config: ConfigManager):
     if len(user_input) > 1000:
-        response = await chatbot.databot(f"CURRENT USER INPUT: Please summarize this text into less than 500 characters, preserving original info as much as possible: '{user_input}'. END OF CURRENT USER INPUT. ")
+        response = await chatbot.ask(f"CURRENT USER INPUT: Please summarize this text into less than 500 characters, preserving original info as much as possible: '{user_input}'. END OF CURRENT USER INPUT. ", type='helper')
         user_input = response['message']
     current_datetime = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     memory.add_chat_input(f"USER:{user_input}{current_datetime}")
@@ -63,7 +63,8 @@ async def process_output(avatar_expression, bot_response, user_input, twitch_cha
         truncated_bot_response = truncate_text(bot_response, 485)
         await twitch_channel.send(f"[{config.name}]: {truncated_bot_response}")
     if 'standard' in config.bot_type:
-        display_file(bot_response, config.name, 'avatar')
+        text_response = response_to_txt_file(bot_response)
+        display_file(text_response, config.name, 'avatar')
     if '!tts' in user_input:
         tts_response = tts_to_audio_file(bot_response, config.voice)
         display_file(tts_response, config.name, 'avatar')
@@ -71,16 +72,16 @@ async def process_output(avatar_expression, bot_response, user_input, twitch_cha
         avatar_image = await get_avatar(avatar_expression, config, chatbot)  
         display_file(avatar_image, config.name, 'avatar')
     if len(bot_response) > 1000:
-        response = await chatbot.databot(f"CURRENT USER INPUT: Please summarize this text into less than 500 characters, preserving original info as much as possible: '{bot_response}'. END OF CURRENT USER INPUT. ")
+        response = await chatbot.ask(f"CURRENT USER INPUT: Please summarize this text into less than 500 characters, preserving original info as much as possible: '{bot_response}'. END OF CURRENT USER INPUT. ", type='helper')
         bot_response = response['message']
     memory.add_chat_input(f"YOU: {bot_response}")
     await memory.summarize_bot_life(chatbot)
     return avatar_image
 
-async def process_queue_input(user_store, save_users, message, memory: Memory, chatbot: Chatbot, config: ConfigManager):
+async def process_queue_input(message, memory: Memory, chatbot: Chatbot, config: ConfigManager):
     current_datetime = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')  # Step 2: Get the current date and time as a formatted string
     if len(message) > 1000:
-        response = await chatbot.databot(f"CURRENT USER INPUT: Please summarize this text into less than 500 characters, preserving original info as much as possible: '{message}'. END OF CURRENT USER INPUT. ")
+        response = await chatbot.ask(f"CURRENT USER INPUT: Please summarize this text into less than 500 characters, preserving original info as much as possible: '{message}'. END OF CURRENT USER INPUT. ", type='helper')
         message = response['message']
     memory.add_queue_input(f"USER:{message}{current_datetime}")
     print(f"User input: {message}")  
@@ -92,12 +93,12 @@ async def process_queue_input(user_store, save_users, message, memory: Memory, c
 
 async def process_queue_output(truncated_response, combined_context, channel: Channel, chatbot: Chatbot, memory: Memory, config: ConfigManager):
     if len(truncated_response) > 1000:
-        response = await chatbot.databot(f"CURRENT USER INPUT: Please summarize this text into less than 500 characters, preserving original info as much as possible: '{truncated_response}'. END OF CURRENT USER INPUT. ")
+        response = await chatbot.ask(f"CURRENT USER INPUT: Please summarize this text into less than 500 characters, preserving original info as much as possible: '{truncated_response}'. END OF CURRENT USER INPUT. ", type='helper')
         truncated_response = response['message']
     memory.add_queue_input(f"YOU: {truncated_response}")
     truncated_response = truncate_text(truncated_response, 485)
     await channel.send(f"[{config.name}]: {truncated_response}")
-    queue_response = await chatbot.databot(f"Please identify the queue in this response and include numbering: '{truncated_response}'. Your response should contain nothing but the queue.", f"Here is some (possible) context info: {combined_context}")
+    queue_response = await chatbot.ask(f"Please identify the queue in this response and include numbering: '{truncated_response}'. Your response should contain nothing but the queue.", f"Here is some (possible) context info: {combined_context}", type='helper')
     queue = queue_response["message"]
     print(f"queue: {queue}")
     avatar_image = await get_queue_avatar(queue, config)
@@ -111,11 +112,10 @@ async def process_bg_output(background_prompt, channel: Channel, config: ConfigM
     background = await get_background(background_prompt, config, chatbot)
     display_file(background, config.name, 'background')
 
-#replace chatbot.ask with your own LLM response method if desired, just makes sure a string is returned by get_bot_response()
 async def get_bot_response(user_input, combined_context, chatbot: Chatbot):
     try:
-        response = await chatbot.ask(f"CURRENT USER INPUT: '{user_input}' END OF CURRENT USER INPUT. Only respond to the current user input. Here is some (possible, may not appear) additional context for you to use to inform your response: '{combined_context}'. ")
+        response = await chatbot.ask(f"CURRENT USER INPUT: '{user_input}' END OF CURRENT USER INPUT. Only respond to the current user input. Here is some (possible, may not appear) additional context for you to use to inform your response: '{combined_context}'. ", type='main_response')
     except Exception as e:
-        response = await chatbot.ask(f"CURRENT USER INPUT: '{user_input}' END OF CURRENT USER INPUT. Only respond to the current user input. Failed to fetch entire memory due to error: {e}. ")
+        response = await chatbot.ask(f"CURRENT USER INPUT: '{user_input}' END OF CURRENT USER INPUT. Only respond to the current user input. Failed to fetch entire memory due to error: {e}. ", type='main_response')
     print(f"blankbot response: {response['message']}.")
     return response["message"]

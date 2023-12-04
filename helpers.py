@@ -5,15 +5,12 @@ import os
 import os
 from config_module import ConfigManager
 from chatbot import Chatbot
+import shutil
 import re
-from google.cloud import storage
 import traceback
 import asyncio
 from sentience_module import get_sentience_core
-
-GOOGLE_APPLICATION_CREDENTIALS = ""
-CLIENT_SECRET = os.getenv("TWITCH_CLIENT_SECRET")  # Ensure you have the client secret in your .env file
-CLIENT_ID = os.getenv("TWITCH_CLIENT_ID")
+from openai_module import client
 
 class Memory:
     def __init__(self, config: ConfigManager):
@@ -52,9 +49,10 @@ class Memory:
         #print(f"long_term_mem before summary: {long_term_mem}")
         if len(long_term_mem) > self.long_term_mem_limit_length:
             print("summarizing memory")
-            memory_response = await chatbot.databot(
+            memory_response = await chatbot.ask(
                 f"CURRENT USER INPUT: Please summarize this ENTIRE conversation between a user and {self.config.name} into less than 2000 characters: '{long_term_mem}'. Last 1000 characters of the conversation: '{short_term_mem}'. This will be used as the conversation history for {self.config.name}. Keep more recent parts more unchanged. "
-                f"The earlier portions should be more condensed and later additions less altered. If allowable within the character limit, always keep the last few messages from {self.config.name} and the user unchanged. Your response should contain nothing but the summary. END OF CURRENT USER INPUT. "
+                f"The earlier portions should be more condensed and later additions less altered. If allowable within the character limit, always keep the last few messages from {self.config.name} and the user unchanged. Your response should contain nothing but the summary. END OF CURRENT USER INPUT. ",
+                type='helper'
             )
             raw_memory_summary = memory_response["message"]
             memory_summary = truncate_backwards(raw_memory_summary, 2000)
@@ -70,9 +68,10 @@ class Memory:
             #print(f"sentience_context before summary: {sentience_context}")
             if len(sentience_context) > self.sentience_limit_length:
                 #print("summarizing memory")
-                sentience_summary_response = await chatbot.databot(
+                sentience_summary_response = await chatbot.ask(
                     f"CURRENT USER INPUT: Please summarize this sentience history of {self.config.name} into less than 1000 characters: '{sentience_context}'. "
-                    "Your response should contain nothing but the summary. END OF CURRENT USER INPUT. "
+                    "Your response should contain nothing but the summary. END OF CURRENT USER INPUT. ",
+                    type='helper'
                 )
                 raw_sentience_summary = sentience_summary_response["message"]
                 sentience_summary = truncate_text(raw_sentience_summary, 1000)
@@ -87,9 +86,10 @@ class Memory:
         #print(f"long_term_mem before summary: {long_term_mem}")
         if len(long_term_mem) > self.long_term_mem_limit_length:
             #print("summarizing memory")
-            memory_response = await chatbot.databot(
+            memory_response = await chatbot.ask(
                 f"CURRENT USER INPUT: Please summarize this ENTIRE conversation between a user and {self.config.name} into less than 1000 characters: '{long_term_mem}'. Last 1000 characters of the conversation: '{short_term_mem}'. This will be used as the conversation history for {self.config.name}. Keep more recent parts more unchanged. "
-                f"The earlier portions should be more condensed and later additions less altered. If allowable within the character limit, always keep the last few messages from {self.config.name} and the user unchanged. Your response should contain nothing but the summary. END OF CURRENT USER INPUT. "
+                f"The earlier portions should be more condensed and later additions less altered. If allowable within the character limit, always keep the last few messages from {self.config.name} and the user unchanged. Your response should contain nothing but the summary. END OF CURRENT USER INPUT. ",
+                type='helper'
             )
             raw_memory_summary = memory_response["message"]
             memory_summary = truncate_backwards(raw_memory_summary, 1000)
@@ -139,9 +139,6 @@ class Memory:
         #print(f"existing data after adding new data: {existing_data}")
         with open(self.memory_file, "w") as f:
             json.dump(existing_data, f)
-        #print(f"'contents of memory json after adding data and dumping back to json: {existing_data}")
-        save_json_to_cloud(existing_data, self.memory_file)
-        #print(f"json saved to google cloud: '{self.memory_file}': '{existing_data}'")
 
     def construct_memory_data(self):
         # Consolidated memory data construction
@@ -154,7 +151,7 @@ class Memory:
         }
 
 def load_memory(memory: Memory):
-    memory_data = load_json_from_cloud(f'{memory.config.name}_memory')
+    memory_data = f'{memory.config.name}_memory'
     if memory_data is None:
         memory_data = {
             "short term memory": [],
@@ -176,33 +173,6 @@ def load_memory(memory: Memory):
             memory.sentience_memory = items
     return memory
 
-def save_json_to_cloud(json_data, filename):
-    try:
-        storage_client = storage.Client.from_service_account_json(GOOGLE_APPLICATION_CREDENTIALS)
-        bucket = storage_client.get_bucket('yourbucket')
-        blob = bucket.blob(filename)        
-        blob.upload_from_string(json.dumps(json_data))
-        #print(f"Blob '{filename} appended with '{json_data}'")
-    except Exception as e:
-        print(f"Exception while saving json to cloud: {e}")
-
-def load_json_from_cloud(filename):
-    try:
-        storage_client = storage.Client.from_service_account_json(GOOGLE_APPLICATION_CREDENTIALS)
-        bucket = storage_client.get_bucket('yourbucket')
-        blob = bucket.blob(f"{filename}.json")
-        if not blob.exists():
-            #print(f"Blob {filename}.json does not exist.")
-            return None
-        json_data = json.loads(blob.download_as_text())
-        with open(f'{filename}.json', "w") as f:
-            json.dump(json_data, f)
-        #print(f"loaded json from cloud:'{filename}': '{json_data}'")
-        return json_data
-    except Exception as e:
-        print(f"Exception while loading json from cloud: {e}")
-        return None
-
 def read_json_file(file_path):
     try:
         with open(file_path, 'r') as file:
@@ -210,6 +180,21 @@ def read_json_file(file_path):
     except Exception as e:
         print(f"error in read_json_file: {e}")
         traceback.print_exc()
+    
+def process_txt_file(file_path: str) -> str:
+    with open(file_path, 'r', encoding='utf-8') as file:
+        content = file.read()
+    return content
+
+def response_to_txt_file(response: str) -> str:
+    directory = "text_files"
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    file_path = f"{directory}/response.txt"
+    with open(file_path, 'w', encoding='utf-8') as file:
+        file.write(response)
+    
+    return file_path
 
 def truncate_text(text, max_chars):
     if len(text) > max_chars:
@@ -217,11 +202,14 @@ def truncate_text(text, max_chars):
     return text
 
 def display_file(file_name, config_name, type):
-    #insert your frontend display logic
-    pass
+    file_extension = os.path.splitext(file_name)[1]  # Get the file extension
+    destination_path = f'media/{config_name}{type}{file_extension}'  # Use the config_name and extension
+    
+    shutil.copy(file_name, destination_path)
+    print(f"copied {file_name} to {destination_path}")
 
 async def generate_summary(text, max_tokens, chatbot: Chatbot):
-    response = await chatbot.databot(f"CURRENT USER INPUT: Please summarize this chunk of text in under {max_tokens} characters by converting it to shorthand and removing unimportant info, conserving the original form as much as possible. If the log is empty just say 'websearch log empty'. Do not add labels or add any of your own words. text chunk: '{text}'. END OF CURRENT USER INPUT. ")
+    response = await chatbot.ask(f"CURRENT USER INPUT: Please summarize this chunk of text in under {max_tokens} characters by converting it to shorthand and removing unimportant info, conserving the original form as much as possible. If the log is empty just say 'websearch log empty'. Do not add labels or add any of your own words. text chunk: '{text}'. END OF CURRENT USER INPUT. ", type='helper')
     return response["message"]
 
 def truncate_backwards(text, max_chars):
@@ -244,22 +232,24 @@ def remove_segment(text, pattern=r"\[START\](.*?)\[END\]"):
 async def should_search(message, chatbot: Chatbot, memory: Memory):
     short_term_memory = await memory.get_short_term_mem()
     try:
-        response = await chatbot.ask_gpt_3_5(
+        response = await chatbot.ask(
             f"Your job is to check to see if websearches are necessary for incoming user inputs for the chatbot Ava. Please analyze the attached user input for websearch necessity and query. The user input is part of a larger conversation, but only the current user input needs to be evaluated for websearch necessity. Your query will be used verbatim in a google search in order to gather info about the user input. Current user input for websearch analysis: '{message}'. ONLY EVALUATE THIS USER INPUT FOR WEBSEARCH NECESSITY. Put TRUE or FALSE depending on if you think a websearch is necessary for you to respond to the user input more accurately. "
             "Websearches take a long time and use a lot of tokens so use them sparingly. Never put true if the message is just a simple 'test' or 'hello' etc. You should only put TRUE if you think the user input requires info that you do not have, i.e. if the user input has a specific question about a niche subject, "
             "or if the user input requests real time news or weather info. Not every input will need a websearch. It will usually be obvious when a websearch is needed so when in doubt put 'false'. If websearch is true, then also include a good google search query. Use conventional techniques for advanced googling to craft the best search query possible. "
             "You should err on the side of not doing a websearch to save costs. To identify the different segments within your response please encapsulate the the websearch necessity value in [WEBSEARCH_VALUE_START]/[WEBSEARCH_VALUE_END] and websearch query in [WEBSEARCH_QUERY_START]/[WEBSEARCH_QUERY_END]. "
-            f"Your whole response should look like: '[WEBSEARCH_VALUE_START]Insert TRUE if websearch needed, FALSE if not[WEBSEARCH_VALUE_END][WEBSEARCH_QUERY_START]Insert actual websearch query here[WEBSEARCH_QUERY_END]'. Here is some conversation history in case you need more info than present in the current user input to make a query: conversation history (DO NOT EVALUATE THIS PORTION FOR WEBSEARCH NECESSITY, THIS IS JUST TO HELP INFORM YOUR WEBSEARCH QUERY IF THE CURRENT USER INPUT REQUIRES A WEBSEARCH): '{short_term_memory}'."
+            f"Your whole response should look like: '[WEBSEARCH_VALUE_START]Insert TRUE if websearch needed, FALSE if not[WEBSEARCH_VALUE_END][WEBSEARCH_QUERY_START]Insert actual websearch query here[WEBSEARCH_QUERY_END]'. Here is some conversation history in case you need more info than present in the current user input to make a query: conversation history (DO NOT EVALUATE THIS PORTION FOR WEBSEARCH NECESSITY, THIS IS JUST TO HELP INFORM YOUR WEBSEARCH QUERY IF THE CURRENT USER INPUT REQUIRES A WEBSEARCH): '{short_term_memory}'.",
+            type='helper+'
             )
     except Exception as e:
         print(f"error during should_search: {e}")
         try:
-            response = await chatbot.ask_gpt_3_5(
+            response = await chatbot.ask(
                 f"Your job is to check to see if websearches are necessary for incoming user inputs for the chatbot Ava. Please analyze the attached user input for websearch necessity and query. The user input is part of a larger conversation, but only the current user input needs to be evaluated for websearch necessity. Your query will be used verbatim in a google search in order to gather info about the user input. Current user input for websearch analysis: '{message}'. Put TRUE or FALSE depending on if you think a websearch is necessary for you to respond to the user input more accurately. "
                 "Websearches take a long time and use a lot of tokens so use them sparingly. Never put true if the message is just a simple 'test' or 'hello' etc. You should only put TRUE if you think the user input requires info that you do not have, i.e. if the user input has a specific question about a niche subject, "
                 "or if the user input requests real time news or weather info. Not every input will need a websearch. It will usually be obvious when a websearch is needed so when in doubt put 'false'. If websearch is true, then also include a good google search query. Use conventional techniques for advanced googling to craft the best search query possible. "
                 "You should err on the side of not doing a websearch to save costs. To identify the different segments within your response please encapsulate the the websearch necessity value in [WEBSEARCH_VALUE_START]/[WEBSEARCH_VALUE_END] and websearch query in [WEBSEARCH_QUERY_START]/[WEBSEARCH_QUERY_END]. "
-                f"Your whole response should look like: '[WEBSEARCH_VALUE_START]Insert TRUE if websearch needed, FALSE if not[WEBSEARCH_VALUE_END][WEBSEARCH_QUERY_START]Insert actual websearch query here[WEBSEARCH_QUERY_END]'. "
+                f"Your whole response should look like: '[WEBSEARCH_VALUE_START]Insert TRUE if websearch needed, FALSE if not[WEBSEARCH_VALUE_END][WEBSEARCH_QUERY_START]Insert actual websearch query here[WEBSEARCH_QUERY_END]'. ",
+                type='helper+'
                 )
         except Exception as e:
             print(f"error during should_search: {e}")
@@ -267,24 +257,26 @@ async def should_search(message, chatbot: Chatbot, memory: Memory):
     should_search_a = find_segment(whole_memory_summary, r"\[WEBSEARCH_VALUE_START\](.*?)\[WEBSEARCH_VALUE_END\]")
     if 'segment not found' in should_search_a.lower():
         try:
-            response = await chatbot.ask_gpt_3_5(
+            response = await chatbot.ask(
                 f"Your job is to check to see if websearches are necessary for incoming user inputs for the chatbot Ava. Please analyze the attached user input for websearch necessity and query. The user input is part of a larger conversation, but only the current user input needs to be evaluated for websearch necessity. Your query will be used verbatim in a google search in order to gather info about the user input. Current user input for websearch analysis: '{message}'. ONLY EVALUATE THIS USER INPUT FOR WEBSEARCH NECESSITY. Put TRUE or FALSE depending on if you think a websearch is necessary for you to respond to the user input more accurately. "
                 "Websearches take a long time and use a lot of tokens so use them sparingly. Never put true if the message is just a simple 'test' or 'hello' etc. You should only put TRUE if you think the user input requires info that you do not have, i.e. if the user input has a specific question about a niche subject, "
                 "or if the user input requests real time news or weather info. Not every input will need a websearch. It will usually be obvious when a websearch is needed so when in doubt put 'false'. If websearch is true, then also include a good google search query. Use conventional techniques for advanced googling to craft the best search query possible. "
                 "You should err on the side of not doing a websearch to save costs. To identify the different segments within your response please encapsulate the the websearch necessity value in [WEBSEARCH_VALUE_START]/[WEBSEARCH_VALUE_END] and websearch query in [WEBSEARCH_QUERY_START]/[WEBSEARCH_QUERY_END]. "
                 f"Your whole response should look like: '[WEBSEARCH_VALUE_START]Insert TRUE if websearch needed, FALSE if not[WEBSEARCH_VALUE_END][WEBSEARCH_QUERY_START]Insert actual websearch query here[WEBSEARCH_QUERY_END]'. Here is some conversation history in case you need more info than present in the current user input to make a query: conversation history (DO NOT EVALUATE THIS PORTION FOR WEBSEARCH NECESSITY, THIS IS JUST TO HELP INFORM YOUR WEBSEARCH QUERY IF THE CURRENT USER INPUT REQUIRES A WEBSEARCH): '{short_term_memory}'."
-                "THIS IS A RETRY BECAUSE YOUR FORMATTING WASS INCORRECT ON THE FIRST ATTEMPT TO FIND THE WEBSEARCH VALUE, MAKE SURE TO FOLLOW THESE INSTRUCTIONS PERFECTLY. "
+                "THIS IS A RETRY BECAUSE YOUR FORMATTING WASS INCORRECT ON THE FIRST ATTEMPT TO FIND THE WEBSEARCH VALUE, MAKE SURE TO FOLLOW THESE INSTRUCTIONS PERFECTLY. ",
+                type='helper+'
                 )
         except Exception as e:
             print(f"error during should_search: {e}")
             try:
-                response = await chatbot.ask_gpt_3_5(
+                response = await chatbot.ask(
                     f"Your job is to check to see if websearches are necessary for incoming user inputs for the chatbot Ava. Please analyze the attached user input for websearch necessity and query. The user input is part of a larger conversation, but only the current user input needs to be evaluated for websearch necessity. Your query will be used verbatim in a google search in order to gather info about the user input. Current user input for websearch analysis: '{message}'. Put TRUE or FALSE depending on if you think a websearch is necessary for you to respond to the user input more accurately. "
                     "Websearches take a long time and use a lot of tokens so use them sparingly. Never put true if the message is just a simple 'test' or 'hello' etc. You should only put TRUE if you think the user input requires info that you do not have, i.e. if the user input has a specific question about a niche subject, "
                     "or if the user input requests real time news or weather info. Not every input will need a websearch. It will usually be obvious when a websearch is needed so when in doubt put 'false'. If websearch is true, then also include a good google search query. Use conventional techniques for advanced googling to craft the best search query possible. "
                     "You should err on the side of not doing a websearch to save costs. To identify the different segments within your response please encapsulate the the websearch necessity value in [WEBSEARCH_VALUE_START]/[WEBSEARCH_VALUE_END] and websearch query in [WEBSEARCH_QUERY_START]/[WEBSEARCH_QUERY_END]. "
                     f"Your whole response should look like: '[WEBSEARCH_VALUE_START]Insert TRUE if websearch needed, FALSE if not[WEBSEARCH_VALUE_END][WEBSEARCH_QUERY_START]Insert actual websearch query here[WEBSEARCH_QUERY_END]'. "
-                    "THIS IS A RETRY BECAUSE YOUR FORMATTING WASS INCORRECT ON THE FIRST ATTEMPT TO FIND THE WEBSEARCH VALUE, MAKE SURE TO FOLLOW THESE INSTRUCTIONS PERFECTLY. "
+                    "THIS IS A RETRY BECAUSE YOUR FORMATTING WASS INCORRECT ON THE FIRST ATTEMPT TO FIND THE WEBSEARCH VALUE, MAKE SURE TO FOLLOW THESE INSTRUCTIONS PERFECTLY. ",
+                    type='helper+'
                     )
             except Exception as e:
                 print(f"error during should_search: {e}")
@@ -293,24 +285,26 @@ async def should_search(message, chatbot: Chatbot, memory: Memory):
     subject = find_segment(whole_memory_summary, r"\[WEBSEARCH_QUERY_START\](.*?)\[WEBSEARCH_QUERY_END\]")
     if 'segment not found' in subject.lower():
         try:
-            response = await chatbot.ask_gpt_3_5(
+            response = await chatbot.ask(
                 f"Your job is to check to see if websearches are necessary for incoming user inputs for the chatbot Ava. Please analyze the attached user input for websearch necessity and query. The user input is part of a larger conversation, but only the current user input needs to be evaluated for websearch necessity. Your query will be used verbatim in a google search in order to gather info about the user input. Current user input for websearch analysis: '{message}'. ONLY EVALUATE THIS USER INPUT FOR WEBSEARCH NECESSITY. Put TRUE or FALSE depending on if you think a websearch is necessary for you to respond to the user input more accurately. "
                 "Websearches take a long time and use a lot of tokens so use them sparingly. Never put true if the message is just a simple 'test' or 'hello' etc. You should only put TRUE if you think the user input requires info that you do not have, i.e. if the user input has a specific question about a niche subject, "
                 "or if the user input requests real time news or weather info. Not every input will need a websearch. It will usually be obvious when a websearch is needed so when in doubt put 'false'. If websearch is true, then also include a good google search query. Use conventional techniques for advanced googling to craft the best search query possible. "
                 "You should err on the side of not doing a websearch to save costs. To identify the different segments within your response please encapsulate the the websearch necessity value in [WEBSEARCH_VALUE_START]/[WEBSEARCH_VALUE_END] and websearch query in [WEBSEARCH_QUERY_START]/[WEBSEARCH_QUERY_END]. "
                 f"Your whole response should look like: '[WEBSEARCH_VALUE_START]Insert TRUE if websearch needed, FALSE if not[WEBSEARCH_VALUE_END][WEBSEARCH_QUERY_START]Insert actual websearch query here[WEBSEARCH_QUERY_END]'. Here is some conversation history in case you need more info than present in the current user input to make a query: conversation history (DO NOT EVALUATE THIS PORTION FOR WEBSEARCH NECESSITY, THIS IS JUST TO HELP INFORM YOUR WEBSEARCH QUERY IF THE CURRENT USER INPUT REQUIRES A WEBSEARCH): '{short_term_memory}'."
-                "THIS IS A RETRY BECAUSE YOUR FORMATTING WASS INCORRECT ON THE FIRST ATTEMPT TO FIND THE WEBSEARCH QUERY, MAKE SURE TO FOLLOW THESE INSTRUCTIONS PERFECTLY. "
+                "THIS IS A RETRY BECAUSE YOUR FORMATTING WASS INCORRECT ON THE FIRST ATTEMPT TO FIND THE WEBSEARCH QUERY, MAKE SURE TO FOLLOW THESE INSTRUCTIONS PERFECTLY. ",
+                type='helper+'
                 )
         except Exception as e:
             print(f"error during should_search: {e}")
             try:
-                response = await chatbot.ask_gpt_3_5(
+                response = await chatbot.ask(
                     f"Your job is to check to see if websearches are necessary for incoming user inputs for the chatbot Ava. Please analyze the attached user input for websearch necessity and query. The user input is part of a larger conversation, but only the current user input needs to be evaluated for websearch necessity. Your query will be used verbatim in a google search in order to gather info about the user input. Current user input for websearch analysis: '{message}'. Put TRUE or FALSE depending on if you think a websearch is necessary for you to respond to the user input more accurately. "
                     "Websearches take a long time and use a lot of tokens so use them sparingly. Never put true if the message is just a simple 'test' or 'hello' etc. You should only put TRUE if you think the user input requires info that you do not have, i.e. if the user input has a specific question about a niche subject, "
                     "or if the user input requests real time news or weather info. Not every input will need a websearch. It will usually be obvious when a websearch is needed so when in doubt put 'false'. If websearch is true, then also include a good google search query. Use conventional techniques for advanced googling to craft the best search query possible. "
                     "You should err on the side of not doing a websearch to save costs. To identify the different segments within your response please encapsulate the the websearch necessity value in [WEBSEARCH_VALUE_START]/[WEBSEARCH_VALUE_END] and websearch query in [WEBSEARCH_QUERY_START]/[WEBSEARCH_QUERY_END]. "
                     f"Your whole response should look like: '[WEBSEARCH_VALUE_START]Insert TRUE if websearch needed, FALSE if not[WEBSEARCH_VALUE_END][WEBSEARCH_QUERY_START]Insert actual websearch query here[WEBSEARCH_QUERY_END]'. "
-                    "THIS IS A RETRY BECAUSE YOUR FORMATTING WASS INCORRECT ON THE FIRST ATTEMPT TO FIND THE WEBSEARCH QUERY, MAKE SURE TO FOLLOW THESE INSTRUCTIONS PERFECTLY. "
+                    "THIS IS A RETRY BECAUSE YOUR FORMATTING WASS INCORRECT ON THE FIRST ATTEMPT TO FIND THE WEBSEARCH QUERY, MAKE SURE TO FOLLOW THESE INSTRUCTIONS PERFECTLY. ",
+                    type='helper+'
                     )
             except Exception as e:
                 print(f"error during should_search: {e}")
@@ -358,12 +352,24 @@ async def get_webpage_content(url, chatbot: Chatbot):
         return summary
     except Exception as e:
         print(f"An error occurred while fetching the webpage content: {e}")
-        return None    
+        return None
     
 async def get_chat_input(config: ConfigManager):
-    #insert your logic for retrieving frontend inputs
-    pass
+    #implement your own frontend for fetching inputs
+    user_input = ' '
+    return user_input
     
 async def get_listen_input(config: ConfigManager):
-    #insert your logic for retrieving frontend inputs
-    pass
+    #implement your own frontend for fetching user inputs
+    audio_file_path = ""
+    if os.path.exists(audio_file_path):
+        with open(audio_file_path, "rb") as audio_file:
+            transcript = client.audio.transcriptions.create(
+                model="whisper-1", 
+                file=audio_file
+            )
+            print(f"Transcript: {transcript.text}")
+            user_input = transcript.text
+    else:
+        user_input = "failed to transcribe audio"
+    return user_input
