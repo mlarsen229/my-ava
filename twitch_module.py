@@ -160,7 +160,7 @@ class TwitchBot(twitch_commands.Bot):
         message_content = f"Username and username info: '{username}'. Message: {message}"
         combined_context = await process_queue_input(self.user_store, self.save_users, message_content, self.memory, self.chatbot, self.config)
         bot_response = await get_bot_response(message_content, f"{queue_prompt} {combined_context}", self.chatbot)
-        await process_queue_output(" ", bot_response, combined_context, channel, self.chatbot, self.memory, self.config)
+        await process_queue_output(bot_response, combined_context, channel, self.chatbot, self.memory, self.config)
 
     async def handle_background_command(self, username, message, channel: Channel):
         channel = self.get_channel(self.config.channel)
