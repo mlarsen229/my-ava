@@ -10,21 +10,25 @@ import asyncio
 
 load_dotenv()
 TWITCH_CLIENT_ID = os.getenv("TWITCH_CLIENT_ID")
-TWITCH_BOT_NICK = os.getenv("blankbot_online")
+TWITCH_BOT_NICK = os.getenv("TWITCH_BOT_NICK")
 TWITCH_BOT_PREFIX = "!"
 
 bot_instance = None
 
+
+#Specify platform here. Insert your desired bot class based on your desired platform (config.bot_type)
 def create_bot(loop, config: ConfigManager, chatbot: Chatbot, memory: Memory):
     if config.bot_type == 'twitch':
         bot_type = TwitchBot
-    elif config.bot_type == 'standard':
-        bot_type = StandardBot
     elif config.bot_type == 'discord':
         bot_type = DiscordBot
+    else:
+        bot_type = StandardBot
     bot_instance = bot_type(loop, config, chatbot, memory)
     return bot_instance
 
+
+#This is a plain bot class to which your desired platform's endpoints can be plugged into
 class StandardBot:
     def __init__(self, loop, config: ConfigManager, chatbot: Chatbot, memory: Memory):
         print("Initializing StandardBot")
