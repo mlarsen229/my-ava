@@ -41,7 +41,3 @@ def config_to_dict(config):
 
 def dict_to_config(config_dict):
     return ConfigManager(**config_dict)
-
-def save_configs(config_store):
-    #insert logic for saving bot configs
-    pass

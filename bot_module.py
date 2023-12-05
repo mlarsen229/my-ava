@@ -1,4 +1,4 @@
-from helpers import Memory, get_chat_input, get_listen_input
+from helpers import Memory, get_listen_input
 from config_module import ConfigManager
 from chatbot import Chatbot
 from twitch_module import TwitchBot
@@ -31,7 +31,7 @@ def create_bot(loop, config: ConfigManager, chatbot: Chatbot, memory: Memory):
 #This is a plain bot class to which your desired platform's endpoints can be plugged into
 class StandardBot:
     def __init__(self, loop, config: ConfigManager, chatbot: Chatbot, memory: Memory):
-        print("Initializing StandardBot")
+        print("Initializing Standard AVA")
         self.loop = loop
         self.config = config
         self.memory = memory
@@ -39,7 +39,8 @@ class StandardBot:
         self.is_running = True
 
     async def start(self):
-        print(f"starting standard bot")
+        print(f"starting standard AVA {self.config.name}")
+        await self.await_chat_input(self)
         while self.is_running:
             await asyncio.sleep(1)
 
@@ -53,14 +54,20 @@ class StandardBot:
     def shutdown(self):
         print("Shutting down StandardBot")
         self.is_running = False
+
+    async def await_chat_input(self):
+        #implement your own frontend for fetching inputs
+        user_input = input("User: ")
+        print(f"User: {user_input}")
+        await self.handle_chat_command(user_input)
     
-    async def handle_chat_command(self):
+    async def handle_chat_command(self, user_input):
         channel = ""
-        user_input = await get_chat_input(self.config)
         combined_context, avatar_context = await process_input(user_input, channel, self.memory, self.chatbot, self.config) 
         print(f"combined_context: {combined_context}")
         bot_response = await get_bot_response(user_input, combined_context, self.chatbot)
         await process_output(avatar_context, bot_response, user_input, channel, self.chatbot, self.memory, self.config)
+        await self.await_chat_input(self)
 
     async def handle_listen_command(self):
         channel = ""

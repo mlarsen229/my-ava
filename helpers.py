@@ -201,12 +201,8 @@ def truncate_text(text, max_chars):
         return text[:max_chars-3] + "..."
     return text
 
-def display_file(file_name, config_name, type):
-    file_extension = os.path.splitext(file_name)[1]  # Get the file extension
-    destination_path = f'media/{config_name}{type}{file_extension}'  # Use the config_name and extension
-    
-    shutil.copy(file_name, destination_path)
-    print(f"copied {file_name} to {destination_path}")
+def display_file(response, config_name, type):
+    print(f"{config_name}: {response}")
 
 async def generate_summary(text, max_tokens, chatbot: Chatbot):
     response = await chatbot.ask(f"CURRENT USER INPUT: Please summarize this chunk of text in under {max_tokens} characters by converting it to shorthand and removing unimportant info, conserving the original form as much as possible. If the log is empty just say 'websearch log empty'. Do not add labels or add any of your own words. text chunk: '{text}'. END OF CURRENT USER INPUT. ", type='helper')
@@ -353,11 +349,6 @@ async def get_webpage_content(url, chatbot: Chatbot):
     except Exception as e:
         print(f"An error occurred while fetching the webpage content: {e}")
         return None
-    
-async def get_chat_input(config: ConfigManager):
-    #implement your own frontend for fetching inputs
-    user_input = ' '
-    return user_input
     
 async def get_listen_input(config: ConfigManager):
     #implement your own frontend for fetching user inputs

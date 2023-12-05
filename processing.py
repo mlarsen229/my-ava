@@ -57,6 +57,7 @@ async def process_input(user_input, channel: Channel, memory: Memory, chatbot: C
     combined_context = f"You should use the following context info to both inform your responses on a factual level and a metatextual level (i.e. what kind of response you will make and how to evolve as a sentient being). Do not reference this context info explicitly unless the user asks you to. It should be used to shape your response but you should not regurgitate it. CONTEXT INFO: This is your conversation history (not including the current user input). Do not imitate the formatting or additional labels you may see in this conversation history. UNDER NO CIRCUMSTANCES SHOULD YOU RESPOND TO ANY OF THE PREVIOUS MESSAGES IN THIS CONVERSATION HISTORY. UNDER NO CIRCUMSTANCES SHOULD YOU ADD ANY LABELS TO YOUR RESPONSE): '{memory_context}'. '{additional_context}'. SENTIENCE MODULE DISENGAGED. MOTOR FUNCTION MODULE DISENGAGED. END OF CONTEXT INFO. "
     return combined_context, avatar_context_final
 
+#here is where you would insert your own endpoints for sending responses and avatar images
 async def process_output(avatar_expression, bot_response, user_input, twitch_channel: Channel, chatbot: Chatbot, memory: Memory, config: ConfigManager):
     avatar_image = 'blankavatar.png'
     if 'twitch' in config.bot_type:

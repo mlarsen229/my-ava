@@ -2,12 +2,12 @@ import os
 from dotenv import load_dotenv
 from twitchio.ext import commands as twitch_commands
 from twitchio import Channel
-from helpers import Memory, get_twitch_token, get_listen_input
+from helpers import Memory, get_listen_input
 from processing import process_input, process_output, process_queue_input, process_queue_output, get_bot_response, process_bg_output
 from chatbot import Chatbot
 from dotenv import load_dotenv
 import os
-from config_module import ConfigManager, save_configs, config_store, config_to_dict
+from config_module import ConfigManager
 import logging
 import time
 
@@ -68,31 +68,19 @@ class TwitchBot(twitch_commands.Bot):
             if f"{self.config.name} set chat reward id" in data:
                 self.config.chat_reward_id = reward_id
                 print(f"Updated self.config.chat_reward_id to {self.config.chat_reward_id}")
-                serialized_config = config_to_dict(self.config)
                 await channel.send(f"[{self.config.name}]: chat reward id set.")
-                config_store[self.config.name] = serialized_config
-                save_configs(config_store)
             elif f"{self.config.name} set tts reward id" in data:
                 self.config.tts_reward_id = reward_id
                 print(f"Updated self.config.chat_reward_id to {self.config.tts_reward_id}")
-                serialized_config = config_to_dict(self.config)
                 await channel.send(f"[{self.config.name}]: tts reward id set.")
-                config_store[self.config.name] = serialized_config
-                save_configs(config_store)
             elif f"{self.config.name} set queue reward id" in data:
                 self.config.queue_reward_id = reward_id
                 print(f"Updated self.config.queue_reward_id to {self.config.queue_reward_id}")
-                serialized_config = config_to_dict(self.config)
                 await channel.send(f"[{self.config.name}]: queue reward id set.")
-                config_store[self.config.name] = serialized_config
-                save_configs(config_store)
             elif f"{self.config.name} set background reward id" in data:
                 self.config.background_reward_id = reward_id
                 print(f"Updated self.config.background_reward_id to {self.config.background_reward_id}")
-                serialized_config = config_to_dict(self.config)
                 await channel.send(f"[{self.config.name}]: background reward id set.")
-                config_store[self.config.name] = serialized_config
-                save_configs(config_store)
 
     async def event_raw_data(self, data: str):
         if self.config.tts_command_bits == None:
