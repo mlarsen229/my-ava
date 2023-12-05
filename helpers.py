@@ -132,7 +132,6 @@ class Memory:
                 existing_data = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
             existing_data = {}
-            print(f"Warning: Issue with reading file, starting with empty memory for {self.memory_file}")
         #print(f"existing contents of memory json file before extending new data: {existing_data}")
         for memory_type, new_items in memory_data.items():
             existing_data[memory_type] = new_items
@@ -203,6 +202,7 @@ def truncate_text(text, max_chars):
 
 def display_file(response, config_name, type):
     print(f"{config_name}: {response}")
+    return
 
 async def generate_summary(text, max_tokens, chatbot: Chatbot):
     response = await chatbot.ask(f"CURRENT USER INPUT: Please summarize this chunk of text in under {max_tokens} characters by converting it to shorthand and removing unimportant info, conserving the original form as much as possible. If the log is empty just say 'websearch log empty'. Do not add labels or add any of your own words. text chunk: '{text}'. END OF CURRENT USER INPUT. ", type='helper')
@@ -363,4 +363,8 @@ async def get_listen_input(config: ConfigManager):
             user_input = transcript.text
     else:
         user_input = "failed to transcribe audio"
+    return user_input
+
+def get_chat_input():
+    user_input = input('User: ')
     return user_input

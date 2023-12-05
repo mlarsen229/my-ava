@@ -64,8 +64,7 @@ async def process_output(avatar_expression, bot_response, user_input, twitch_cha
         truncated_bot_response = truncate_text(bot_response, 485)
         await twitch_channel.send(f"[{config.name}]: {truncated_bot_response}")
     if 'standard' in config.bot_type:
-        text_response = response_to_txt_file(bot_response)
-        display_file(text_response, config.name, 'avatar')
+        display_file(bot_response, config.name, 'avatar')
     if '!tts' in user_input:
         tts_response = tts_to_audio_file(bot_response, config.voice)
         display_file(tts_response, config.name, 'avatar')
@@ -118,5 +117,4 @@ async def get_bot_response(user_input, combined_context, chatbot: Chatbot):
         response = await chatbot.ask(f"CURRENT USER INPUT: '{user_input}' END OF CURRENT USER INPUT. Only respond to the current user input. Here is some (possible, may not appear) additional context for you to use to inform your response: '{combined_context}'. ", type='main_response')
     except Exception as e:
         response = await chatbot.ask(f"CURRENT USER INPUT: '{user_input}' END OF CURRENT USER INPUT. Only respond to the current user input. Failed to fetch entire memory due to error: {e}. ", type='main_response')
-    print(f"blankbot response: {response['message']}.")
     return response["message"]

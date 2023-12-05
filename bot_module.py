@@ -1,4 +1,4 @@
-from helpers import Memory, get_listen_input
+from helpers import Memory, get_listen_input, get_chat_input
 from config_module import ConfigManager
 from chatbot import Chatbot
 from twitch_module import TwitchBot
@@ -39,10 +39,19 @@ class StandardBot:
         self.is_running = True
 
     async def start(self):
-        print(f"starting standard AVA {self.config.name}")
-        await self.await_chat_input(self)
+        print(f"Starting standard AVA {self.config.name}")
+        # Run the chat listening loop in a separate thread
+        await self.listen_for_chat()
         while self.is_running:
-            await asyncio.sleep(1)
+            await asyncio.sleep(1)  # This keeps the bot running
+
+    async def listen_for_chat(self):
+        while self.is_running:
+            user_input = input('User: ')
+            if user_input == 'exit':  # Implement a way to exit
+                self.stop()
+                break
+            await self.handle_chat_command(user_input)
 
     def stop(self):
         try:
@@ -54,20 +63,13 @@ class StandardBot:
     def shutdown(self):
         print("Shutting down StandardBot")
         self.is_running = False
-
-    async def await_chat_input(self):
-        #implement your own frontend for fetching inputs
-        user_input = input("User: ")
-        print(f"User: {user_input}")
-        await self.handle_chat_command(user_input)
     
     async def handle_chat_command(self, user_input):
         channel = ""
         combined_context, avatar_context = await process_input(user_input, channel, self.memory, self.chatbot, self.config) 
-        print(f"combined_context: {combined_context}")
         bot_response = await get_bot_response(user_input, combined_context, self.chatbot)
         await process_output(avatar_context, bot_response, user_input, channel, self.chatbot, self.memory, self.config)
-        await self.await_chat_input(self)
+        await self.listen_for_chat()
 
     async def handle_listen_command(self):
         channel = ""
