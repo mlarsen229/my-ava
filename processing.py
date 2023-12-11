@@ -117,5 +117,5 @@ async def get_bot_response(user_input, combined_context, chatbot: Chatbot):
         response = await chatbot.ask(f"CURRENT USER INPUT: '{user_input}' END OF CURRENT USER INPUT. Only respond to the current user input. Here is some (possible, may not appear) additional context for you to use to inform your response: '{combined_context}'. ", type='main_response')
     except Exception as e:
         response = await chatbot.ask(f"CURRENT USER INPUT: '{user_input}' END OF CURRENT USER INPUT. Only respond to the current user input. Failed to fetch entire memory due to error: {e}. ", type='main_response')
-    #final_response = remove_string(response["message"], "RESPONSE_END")
-    return response["message"]
+    final_response = remove_segment(response["message"], "RESPONSE_END")
+    return final_response
