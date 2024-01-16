@@ -11,5 +11,4 @@ async def generate_dall_e_image(prompt: str, n: int=1, size: str = "256x256", mo
         style="vivid"
     )
     url = response.data[0].url
-    print(f"dall-e url in generate_dall_e_image: {url}")
     return url

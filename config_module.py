@@ -1,11 +1,14 @@
 config_store = {}
 
 class ConfigManager:
-    def __init__(self, channel=None, name=None, avatar=None, base_prompt=None, voice=None, chat_command_bits=None, tts_command_bits=None, user=None, bot_type=None, chat_reward_id=None, tts_reward_id=None, queue_reward_id=None, background_reward_id=None, plugins=None, cost=None, queuecost=None):
+    def __init__(self, channel=None, name=None, avatar=None, avatar_seed=1, base_prompt=None, custom_info=" ", custom_files=" ", voice=None, chat_command_bits=None, tts_command_bits=None, user=None, bot_type=None, chat_reward_id=None, tts_reward_id=None, queue_reward_id=None, background_reward_id=None, plugins=None, queuecost=None, bgcost=None):
         self.channel = channel
         self.name = name
         self.avatar = avatar
+        self.avatar_seed = avatar_seed
         self.base_prompt = base_prompt
+        self.custom_info = custom_info
+        self.custom_files = custom_files
         self.voice = voice
         self.chat_command_bits = chat_command_bits
         self.tts_command_bits = tts_command_bits
@@ -16,15 +19,18 @@ class ConfigManager:
         self.queue_reward_id = queue_reward_id
         self.background_reward_id = background_reward_id
         self.plugins = plugins
-        self.cost = cost
         self.queuecost = queuecost
+        self.bgcost = bgcost
 
 def config_to_dict(config):
     return {
         'channel': config.channel,
         'name': config.name,
         'avatar': config.avatar,
+        'avatar_seed': config.avatar_seed,
         'base_prompt': config.base_prompt,
+        'custom_info': config.custom_info,
+        'custom_files': config.custom_files,
         'voice': config.voice,
         'chat_command_bits': config.chat_command_bits,
         'tts_command_bits': config.tts_command_bits,
@@ -35,8 +41,8 @@ def config_to_dict(config):
         'queue_reward_id': config.queue_reward_id,
         'background_reward_id': config.background_reward_id,
         'plugins': config.plugins,
-        'cost': config.cost,
-        'queuecost': config.queuecost
+        'queuecost': config.queuecost,
+        'bgcost': config.bgcost
     }
 
 def dict_to_config(config_dict):
